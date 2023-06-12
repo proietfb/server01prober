@@ -4,7 +4,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/spf13/viper"
 	"log"
-	actions "server01prober/pkgs/actions"
+	actions "server01prober/pkgs"
 )
 
 type Conf struct {
@@ -60,11 +60,15 @@ func main() {
 
 	updates := bot.GetUpdatesChan(u)
 
+	acd := actions.Init()
+
 	for update := range updates {
 		if conf.auth(update.SentFrom().UserName, update.SentFrom().ID) {
 			if update.Message != nil {
 				log.Printf("Authenticated")
-				actions.GetContainers()
+				str := acd.GetContainers()
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, str)
+				bot.Send(msg)
 			}
 		} else {
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "User "+update.SentFrom().UserName+" cannot use this bot")

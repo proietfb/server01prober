@@ -2,7 +2,6 @@ package actions
 
 import (
 	"context"
-	"fmt"
 
 	"log"
 
@@ -10,31 +9,41 @@ import (
 	"github.com/docker/docker/client"
 )
 
-var dcl *client.Client
-var ctx context.Context
+type ActionsData struct {
+	dcl *client.Client
+	ctx context.Context
+}
 
 type Actions interface {
+	Init() *Actions
 	GetContainers() string
 }
 
-func dClient() (*client.Client, context.Context) {
+func Init() *ActionsData {
 	var err error
-	if dcl == nil {
-		ctx = context.Background()
-		dcl, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	ac := ActionsData{}
+	if ac.dcl == nil {
+		ac.ctx = context.Background()
+		log.Println(client.WithAPIVersionNegotiation())
+		ac.dcl, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 		if err != nil {
 			log.Println("Error on creating client ", err)
 		}
 	}
-	return dcl, ctx
+	return &ac
 }
 
-func GetContainers() string {
-	containers, err := dcl.ContainerList(ctx, types.ContainerListOptions{})
+func (ad *ActionsData) GetContainers() string {
+	containers, err := ad.dcl.ContainerList(ad.ctx, types.ContainerListOptions{})
+	var str string
 	if err == nil {
 		for _, c := range containers {
-			fmt.Println(c.ID)
+			var names string
+			for _, n := range c.Names {
+				names += n + "\n"
+			}
+			str += names + ": " + c.Image + ",status: " + c.Status + "\n"
 		}
 	}
-	return ""
+	return str
 }
