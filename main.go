@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/viper"
 	"log"
 	actions "server01prober/pkgs"
+	"strings"
 )
 
 type Conf struct {
@@ -42,6 +43,83 @@ func (conf *Conf) auth(username string, chatID int64) bool {
 	return false
 }
 
+var baseCommands = tgbotapi.NewReplyKeyboard(
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("/status"),
+		tgbotapi.NewKeyboardButton("/containerLog")),
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("/containerRestart"),
+		tgbotapi.NewKeyboardButton("/help"),
+	),
+)
+
+func generateContainersCommand(ac *actions.ActionsData) tgbotapi.InlineKeyboardMarkup {
+	var kMarkup tgbotapi.InlineKeyboardMarkup
+
+	names := ac.GetContainersName()
+
+	if len(names) > 0 {
+		kbuttons := make([][]tgbotapi.InlineKeyboardButton, len(names))
+
+		for i, name := range names {
+			kbuttons[i] = append(kbuttons[i], tgbotapi.NewInlineKeyboardButtonData(name[1:], name[1:]))
+		}
+		newKboard := tgbotapi.NewInlineKeyboardMarkup(kbuttons...)
+		kMarkup = newKboard
+	}
+
+	return kMarkup
+}
+
+func callbackHandler(update tgbotapi.Update, acd *actions.ActionsData) bool {
+	var ret bool
+	switch strings.ToLower((update.CallbackQuery.Message.Text)) {
+	case "restart":
+		log.Println("Container id: ", acd.GetContainerID(update.CallbackQuery.Data))
+		ret = acd.RestartContainer("/" + update.CallbackQuery.Data)
+	case "log":
+		log.Println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaa")
+		acd.GetContainerlog("/" + update.CallbackQuery.Data)
+	default:
+		log.Println("Cannot perform action ", update.CallbackQuery.Message.Text)
+	}
+	return ret
+}
+
+func parseCommand(update tgbotapi.Update, acd *actions.ActionsData) *tgbotapi.MessageConfig {
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+	switch update.Message.Command() {
+	case "start":
+		msg.Text = "Welcome " + update.SentFrom().UserName
+		msg.ReplyMarkup = baseCommands
+	case "help":
+		msg.Text = "Help requested"
+	case "status":
+		msg.Text = acd.GetStatus()
+	case "containerRestart":
+		msg.Text = "Restart"
+		msg.ReplyMarkup = generateContainersCommand(acd)
+	case "containerLog":
+		msg.Text = "Log"
+		msg.ReplyMarkup = generateContainersCommand(acd)
+	default:
+		msg.Text = "Can't Understand"
+
+	}
+	return &msg
+}
+
+func parseCallback(update tgbotapi.Update, acd *actions.ActionsData) *tgbotapi.MessageConfig {
+	ret := callbackHandler(update, acd)
+	log.Println(update.CallbackQuery.Message.Text+" "+update.CallbackQuery.Data, " Ret: ", ret)
+	result := "Success"
+	if !ret {
+		result = "Error"
+	}
+	msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, result)
+	return &msg
+}
+
 func main() {
 	conf := parseConf()
 	bot, err := tgbotapi.NewBotAPI(conf.BotAPIKey)
@@ -51,13 +129,9 @@ func main() {
 	}
 
 	bot.Debug = true
-
 	log.Println("Authorized on account ", bot.Self.UserName)
-
 	u := tgbotapi.NewUpdate(0)
-
 	u.Timeout = 60
-
 	updates := bot.GetUpdatesChan(u)
 
 	acd := actions.Init()
@@ -65,9 +139,16 @@ func main() {
 	for update := range updates {
 		if conf.auth(update.SentFrom().UserName, update.SentFrom().ID) {
 			if update.Message != nil {
-				log.Printf("Authenticated")
-				str := acd.GetContainers()
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, str)
+				if update.Message.IsCommand() {
+					msg := parseCommand(update, acd)
+					bot.Send(msg)
+				} else {
+					continue
+				}
+			} else if update.CallbackQuery != nil {
+				cb := tgbotapi.NewCallback(update.CallbackQuery.ID, "Performing "+update.CallbackQuery.Message.Text)
+				bot.Request(cb)
+				msg := parseCallback(update, acd)
 				bot.Send(msg)
 			}
 		} else {
