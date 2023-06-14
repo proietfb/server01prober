@@ -1,13 +1,13 @@
 package main
 
 import (
-	"log"
-	"os"
-	actions "server01prober/pkgs"
-	"strings"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/spf13/viper"
+	"log"
+	"os"
+	actions "server01prober/pkgs/actions"
+	probe "server01prober/pkgs/probe"
+	"strings"
 )
 
 type Conf struct {
@@ -51,7 +51,7 @@ var baseCommands = tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButton("/containerLog")),
 	tgbotapi.NewKeyboardButtonRow(
 		tgbotapi.NewKeyboardButton("/containerRestart"),
-		tgbotapi.NewKeyboardButton("/help"),
+		tgbotapi.NewKeyboardButton("/stats"),
 	),
 )
 
@@ -100,6 +100,8 @@ func parseCommand(update tgbotapi.Update, acd *actions.ActionsData) *tgbotapi.Me
 		msg.ReplyMarkup = baseCommands
 	case "help":
 		msg.Text = "Help requested"
+	case "stats":
+		msg.Text = probe.Probe()
 	case "status":
 		msg.Text = acd.GetStatus()
 	case "containerRestart":
