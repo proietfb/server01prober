@@ -73,7 +73,7 @@ func (ad *ActionsData) GetContainerlog(name string) []byte {
 	}); err == nil {
 		defer io.Close()
 		buff := make([]byte, 1024*1024*512)
-		n, e := io.Read(buff)
+		n, _ := io.Read(buff)
 		// log.Println("Err: ", e, "\n", string(buff[7:n]))
 		return buff[:n]
 
