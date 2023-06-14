@@ -1,11 +1,13 @@
 package main
 
 import (
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/spf13/viper"
 	"log"
+	"os"
 	actions "server01prober/pkgs"
 	"strings"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/spf13/viper"
 )
 
 type Conf struct {
@@ -71,15 +73,19 @@ func generateContainersCommand(ac *actions.ActionsData) tgbotapi.InlineKeyboardM
 	return kMarkup
 }
 
-func callbackHandler(update tgbotapi.Update, acd *actions.ActionsData) bool {
+func callbackHandler(update tgbotapi.Update, acd *actions.ActionsData, bot *tgbotapi.BotAPI) bool {
 	var ret bool
 	switch strings.ToLower((update.CallbackQuery.Message.Text)) {
 	case "restart":
 		log.Println("Container id: ", acd.GetContainerID(update.CallbackQuery.Data))
 		ret = acd.RestartContainer("/" + update.CallbackQuery.Data)
 	case "log":
-		log.Println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaa")
-		acd.GetContainerlog("/" + update.CallbackQuery.Data)
+		if res := acd.GetContainerlog("/" + update.CallbackQuery.Data); res != nil {
+			os.WriteFile("/tmp/"+update.CallbackQuery.Data+".log", res, 0644)
+			file := tgbotapi.NewDocument(update.CallbackQuery.From.ID, tgbotapi.FilePath("/tmp/"+update.CallbackQuery.Data+".log"))
+			bot.Send(file)
+			ret = true
+		}
 	default:
 		log.Println("Cannot perform action ", update.CallbackQuery.Message.Text)
 	}
@@ -109,8 +115,8 @@ func parseCommand(update tgbotapi.Update, acd *actions.ActionsData) *tgbotapi.Me
 	return &msg
 }
 
-func parseCallback(update tgbotapi.Update, acd *actions.ActionsData) *tgbotapi.MessageConfig {
-	ret := callbackHandler(update, acd)
+func parseCallback(update tgbotapi.Update, acd *actions.ActionsData, bot *tgbotapi.BotAPI) *tgbotapi.MessageConfig {
+	ret := callbackHandler(update, acd, bot)
 	log.Println(update.CallbackQuery.Message.Text+" "+update.CallbackQuery.Data, " Ret: ", ret)
 	result := "Success"
 	if !ret {
@@ -148,7 +154,7 @@ func main() {
 			} else if update.CallbackQuery != nil {
 				cb := tgbotapi.NewCallback(update.CallbackQuery.ID, "Performing "+update.CallbackQuery.Message.Text)
 				bot.Request(cb)
-				msg := parseCallback(update, acd)
+				msg := parseCallback(update, acd, bot)
 				bot.Send(msg)
 			}
 		} else {

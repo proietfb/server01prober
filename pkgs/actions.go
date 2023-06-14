@@ -63,10 +63,10 @@ func (ad *ActionsData) GetContainersName() []string {
 
 }
 
-func (ad *ActionsData) GetContainerlog(name string) string {
+func (ad *ActionsData) GetContainerlog(name string) []byte {
 	id := ad.GetContainerID(name)
 	if io, err := ad.dcl.ContainerLogs(ad.ctx, id, types.ContainerLogsOptions{
-		ShowStdout: true,
+		ShowStdout: false,
 		ShowStderr: true,
 		Follow:     false,
 		Timestamps: true,
@@ -74,11 +74,11 @@ func (ad *ActionsData) GetContainerlog(name string) string {
 		defer io.Close()
 		buff := make([]byte, 1024*1024*512)
 		n, e := io.Read(buff)
-		log.Println("Err: ", e, "\n", string(buff[:n]))
-		return string(buff[:n])
+		// log.Println("Err: ", e, "\n", string(buff[7:n]))
+		return buff[:n]
 
 	}
-	return ""
+	return nil
 }
 
 func (ad *ActionsData) RestartContainer(name string) bool {
