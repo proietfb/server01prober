@@ -20,11 +20,12 @@ type Restrictions struct {
 	ChatID   int64
 }
 
-func parseConf() *Conf {
+func parseConf(confpath string) *Conf {
 	var conf Conf
 	viper.SetConfigName("conf")
 	viper.SetConfigType("json")
 	viper.AddConfigPath(".")
+	viper.AddConfigPath("/srv/server01prober/")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
