@@ -20,7 +20,7 @@ type Restrictions struct {
 	ChatID   int64
 }
 
-func parseConf(confpath string) *Conf {
+func parseConf() *Conf {
 	var conf Conf
 	viper.SetConfigName("conf")
 	viper.SetConfigType("json")
