@@ -24,6 +24,8 @@ jobs:
         
     - name: Get Deps
       run: go mod tidy
+      env:
+        GOPATH: $HOME
       
 
     - name: Build
