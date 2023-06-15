@@ -13,6 +13,7 @@ import (
 type Conf struct {
 	BotAPIKey  string
 	RestrictTo *[]Restrictions
+	MountDisks []string
 }
 type Restrictions struct {
 	Username string
@@ -47,11 +48,11 @@ func (conf *Conf) auth(username string, chatID int64) bool {
 
 var baseCommands = tgbotapi.NewReplyKeyboard(
 	tgbotapi.NewKeyboardButtonRow(
-		tgbotapi.NewKeyboardButton("/status"),
+		tgbotapi.NewKeyboardButton("/containerstatus"),
 		tgbotapi.NewKeyboardButton("/containerLog")),
 	tgbotapi.NewKeyboardButtonRow(
 		tgbotapi.NewKeyboardButton("/containerRestart"),
-		tgbotapi.NewKeyboardButton("/stats"),
+		tgbotapi.NewKeyboardButton("/serverStats"),
 	),
 )
 
@@ -92,7 +93,7 @@ func callbackHandler(update tgbotapi.Update, acd *actions.ActionsData, bot *tgbo
 	return ret
 }
 
-func parseCommand(update tgbotapi.Update, acd *actions.ActionsData) *tgbotapi.MessageConfig {
+func parseCommand(update tgbotapi.Update, acd *actions.ActionsData, disks probe.DisksStats) *tgbotapi.MessageConfig {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 	switch update.Message.Command() {
 	case "start":
@@ -100,9 +101,9 @@ func parseCommand(update tgbotapi.Update, acd *actions.ActionsData) *tgbotapi.Me
 		msg.ReplyMarkup = baseCommands
 	case "help":
 		msg.Text = "Help requested"
-	case "stats":
-		msg.Text = probe.Probe()
-	case "status":
+	case "serverStats":
+		msg.Text = disks.Probe()
+	case "containerstatus":
 		msg.Text = acd.GetStatus()
 	case "containerRestart":
 		msg.Text = "Restart"
@@ -120,9 +121,9 @@ func parseCommand(update tgbotapi.Update, acd *actions.ActionsData) *tgbotapi.Me
 func parseCallback(update tgbotapi.Update, acd *actions.ActionsData, bot *tgbotapi.BotAPI) *tgbotapi.MessageConfig {
 	ret := callbackHandler(update, acd, bot)
 	log.Println(update.CallbackQuery.Message.Text+" "+update.CallbackQuery.Data, " Ret: ", ret)
-	result := "Success"
+	result := update.CallbackQuery.Message.Text + "Success"
 	if !ret {
-		result = "Error"
+		result = update.CallbackQuery.Message.Text + "Error"
 	}
 	msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, result)
 	return &msg
@@ -130,6 +131,7 @@ func parseCallback(update tgbotapi.Update, acd *actions.ActionsData, bot *tgbota
 
 func main() {
 	conf := parseConf()
+	disks := probe.DisksStats{Paths: conf.MountDisks}
 	bot, err := tgbotapi.NewBotAPI(conf.BotAPIKey)
 
 	if err != nil {
@@ -148,7 +150,7 @@ func main() {
 		if conf.auth(update.SentFrom().UserName, update.SentFrom().ID) {
 			if update.Message != nil {
 				if update.Message.IsCommand() {
-					msg := parseCommand(update, acd)
+					msg := parseCommand(update, acd, disks)
 					bot.Send(msg)
 				} else {
 					continue

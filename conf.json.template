@@ -3,5 +3,6 @@
     "restrictTo": [{
         "username": "telegramUserName",
         "chatID": 12345678
-    }]
+    }],
+    "mountDisks": ["/","/data"]
 }
